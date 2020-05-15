@@ -9,7 +9,7 @@
 	url = https://github.com/Dav1dde/glad.git
 [submodule "ext/glfw"]
 	path = ext/glfw
-	url = https://github.com/glfw/glfw.git
+	url = https://github.com/wjakob/glfw.git
 [submodule "ext/nanovg"]
 	path = ext/nanovg
 	url = https://github.com/memononen/nanovg.git
