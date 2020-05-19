@@ -2800,7 +2800,8 @@ public:
 			if (saveFileName.substr((size_t)std::max(0, (int)saveFileName.length() - 4), std::min((size_t)4, saveFileName.length())) != ".rrs") {
 				saveFileName = saveFileName.append(".rrs");
 			}
-			saveSettings(saveFileName);
+			//saveSettings(saveFileName);
+			saveArchive(saveFileName);
 		});
 
 		Button* loadBtn = other_tab->add<Button>("Load settings");
@@ -2808,7 +2809,10 @@ public:
 		loadBtn->setCallback([this]() {
 			toggleBaseWindow(false);
 			std::string loadFileName = file_dialog({ { "rrs", "Simulator settings file" } }, false);
-			loadSettingsFromFile(loadFileName);
+			// loadSettingsFromFile(loadFileName);
+			loadArchive(loadFileName);
+			std::cout << "Graph size after GUI: " << properties->graphSize << std::endl;
+			updateSettings();
 		});
 
 		Button* saveLogBtn = other_tab->add<Button>("Save data");
@@ -3687,99 +3691,14 @@ public:
 #endif
 	}
 
-	void saveSettings(std::string path) {
-		if (path.length()) {
-			FILE* pFile = fopen(path.c_str(), "w");
-			float ver = SETTINGS_VERSION;
-			fwrite(&ver, sizeof(float), 1, pFile);
-			size_t writtenValues;
-			std::pair<char*, size_t> saveFile = properties->saveSettings(&writtenValues);
-			fwrite(&writtenValues, sizeof(size_t), 1, pFile);
-			size_t writtenBytes = fwrite(saveFile.first, 1, saveFile.second, pFile);
-			fclose(pFile);
-			if (writtenBytes == saveFile.second) {
-				MessageDialog* msg = new MessageDialog(this, MessageDialog::Type::Information, "Save settings", "Settings saved successfully.");
-				msg->setPosition(Vector2i((this->size().x() - msg->size().x()) / 2, (this->size().y() - msg->size().y()) / 2));
-				msg->setCallback([this](int /*choice*/) {
-					toggleBaseWindow(true);
-				});
-			}
-			else {
-				MessageDialog* msg = new MessageDialog(this, MessageDialog::Type::Warning, "Save settings", "Settings could not be saved. Do you have permission to edit the folder?", "Try again", "Calcel", true);
-				msg->setPosition(Vector2i((this->size().x() - msg->size().x()) / 2, (this->size().y() - msg->size().y()) / 2));
-				msg->setCallback([this, path](int choice) {
-					if (choice) {
-						saveSettings(path);
-					}
-					else {
-						toggleBaseWindow(true);
-					}
-				});
-			}
-		}
-		else {
-			MessageDialog* msg = new MessageDialog(this, MessageDialog::Type::Warning, "Save settings", "Bad file name.");
-			msg->setPosition(Vector2i((this->size().x() - msg->size().x()) / 2, (this->size().y() - msg->size().y()) / 2));
-			msg->setCallback([this](int /*choice*/) {
-				toggleBaseWindow(true);
-			});
-		}		
+	void saveArchive(std::string path) {
+		properties->saveArchive(path);
+		toggleBaseWindow(true);
 	}
 
-	Settings* loadSettings(const char * path) {
-		ifstream file(path, ios::in | ios::binary | ios::ate);
-		size_t fileLength = (size_t)file.tellg();
-		char * buffer = new char[fileLength];
-		file.seekg(0, ios::beg);
-		file.read(buffer, fileLength);
-		file.close();
-		float ver;
-		std::memcpy(&ver, buffer, sizeof(float));
-		if (ver == SETTINGS_VERSION) {
-			size_t numEntries;
-			std::memcpy(&numEntries, buffer + sizeof(float), sizeof(size_t));
-			Settings* ret = new Settings();
-			ret->loadSettingsFromData(buffer + sizeof(float) + sizeof(size_t), numEntries);
-
-			delete[] buffer;
-			return ret;
-		}
-		else {
-			return nullptr;
-		}
-	}
-
-	void loadSettingsFromFile(std::string path) {
-		if (path.length()) {
-			Settings* set = loadSettings(path.c_str());
-			if (set) {
-				properties = set;
-				updateSettings();
-				MessageDialog* msg = new MessageDialog(this, MessageDialog::Type::Information, "Load settings", "Settings loaded successfully.");
-				msg->setPosition(Vector2i((this->size().x() - msg->size().x()) / 2, (this->size().y() - msg->size().y()) / 2));
-				msg->setCallback([this](int /*choice*/) {
-					toggleBaseWindow(true);
-				});
-			}
-			else {
-				MessageDialog* msg = new MessageDialog(this, MessageDialog::Type::Warning, "Load settings", "The settings file is not valid. It might be corrupt or belong to an older version.", "OK", "Try again", true);
-				msg->setPosition(Vector2i((this->size().x() - msg->size().x()) / 2, (this->size().y() - msg->size().y()) / 2));
-				msg->setCallback([this, path](int choice) {
-					if (choice) {
-						loadSettingsFromFile(path);
-					}
-					else {
-						toggleBaseWindow(true);
-					}
-				});
-			}
-		} else {
-			MessageDialog* msg = new MessageDialog(this, MessageDialog::Type::Warning, "Load settings", "Bad file name.");
-			msg->setPosition(Vector2i((this->size().x() - msg->size().x()) / 2, (this->size().y() - msg->size().y()) / 2));
-			msg->setCallback([this](int /*choice*/) {
-				toggleBaseWindow(true);
-			});
-		}
+	void loadArchive(std::string path) {
+		properties->restoreArchive(path);
+		toggleBaseWindow(true);
 	}
 
 	void loadScriptFromFile(std::string path) {

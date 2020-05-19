@@ -4,9 +4,6 @@
 [submodule "ext/eigen"]
 	path = ext/eigen
 	url = https://gitlab.com/libeigen/eigen.git
-[submodule "ext/glad"]
-	path = ext/glad
-	url = https://github.com/Dav1dde/glad.git
 [submodule "ext/glfw"]
 	path = ext/glfw
 	url = https://github.com/wjakob/glfw.git
@@ -16,3 +13,6 @@
 [submodule "ext/pybind11"]
 	path = ext/pybind11
 	url = https://github.com/pybind/pybind11.git
+[submodule "ext/cereal"]
+	path = ext/cereal
+	url = https://github.com/USCiLab/cereal.git

@@ -47,15 +47,16 @@ void FileDialog::ItemList::draw(NVGcontext* ctx) {
 
 	Vector4f bounds;
 
+	bounds = Vector4f(0.f, 0.f, (float)mSize.x(), (float)mSize.y());
+	/*
 	float scissor[4];
 	nvgGetScissor(ctx, scissor);
 	if (scissor[2] <= 0.f || scissor[3] <= 0.f) {
-		bounds = Vector4f(0.f, 0.f, (float)mSize.x(), (float)mSize.y());
 	}
 	else {
 		bounds = Vector4f(scissor[0], scissor[1], scissor[2], scissor[3]);
 	}
-
+	*/
 	bool rule = true;
 	for (int i = 0; i < 2; i++) {
 		rule = rule && (cursorPos[i] >= bounds[i]) && (cursorPos[i] < bounds[i] + bounds[2 + i]);
