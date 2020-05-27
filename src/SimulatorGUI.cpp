@@ -1,14 +1,6 @@
 ﻿/*
-	src/example2.cpp -- C++ version of an example application that shows
-	how to use the form helper class. For a Python implementation, see
-	'../python/example2.py'.
-
-	NanoGUI was developed by Wenzel Jakob <wenzel.jakob@epfl.ch>.
-	The widget drawing code is based on the NanoVG demo application
-	by Mikko Mononen.
-
-	All rights reserved. Use of this source code is governed by a
-	BSD-style license that can be found in the LICENSE.txt file.
+	SimulatorGUI.cpp draws the main 
+	GUI screen
 */
 #define NOMINMAX
 
@@ -67,8 +59,8 @@
 // SIMULATOR VERSION
 // major.minor.revision.build
 #define VERSION_MAJOR		1
-#define VERSION_MINOR		3
-#define VERSION_REVISION	2
+#define VERSION_MINOR		4
+#define VERSION_REVISION	1
 #define VERSION_BUILD		0		// Setting this to 0 doesn't display the build number
 
 // RECIEVING
@@ -3699,7 +3691,7 @@ public:
 	void loadArchive(std::string path) {
 		properties->restoreArchive(path);
 		toggleBaseWindow(true);
-	}
+	}   
 
 	void loadScriptFromFile(std::string path) {
 		double time0 = reactor->getCurrentTime();
