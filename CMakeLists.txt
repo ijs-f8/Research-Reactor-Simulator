@@ -77,7 +77,7 @@ add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/ext/glfw" "ext_build/glfw")
 set_target_properties(glfw PROPERTIES EXCLUDE_FROM_ALL 1 EXCLUDE_FROM_DEFAULT_BUILD 1)
 
 # Compile Cereal
-#add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/ext/cereal" "ext_build/cereal")
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/ext/cereal" "ext_build/cereal")
 
 # Python support: add NANOGUI_PYTHON flag to all targets
 if (NANOGUI_BUILD_PYTHON)
