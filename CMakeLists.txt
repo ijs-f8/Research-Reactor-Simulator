@@ -2,9 +2,9 @@ cmake_minimum_required (VERSION 2.8.12)
 
 project("NanoGUI")
 
-if(POLICY CMP0058)
-  cmake_policy(SET CMP0058 NEW)
-endif()
+#if(POLICY CMP0048)
+#  cmake_policy(SET CMP0048 NEW)
+#endif()
 
 if(NOT IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/ext/glfw/src")
   message(FATAL_ERROR "The NanoGUI dependency repositories (GLFW, etc.) are missing! "
@@ -19,7 +19,7 @@ else()
 endif()
 
 option(NANOGUI_BUILD_EXAMPLE "Build NanoGUI example application?" OFF)
-option(NANOGUI_BUILD_SHARED  "Build NanoGUI as a shared library?" ON)
+option(NANOGUI_BUILD_SHARED  "Build NanoGUI as a shared library?" OFF)
 option(NANOGUI_BUILD_PYTHON  "Build a Python plugin for NanoGUI?" OFF)
 option(NANOGUI_USE_GLAD      "Build a Python plugin for NanoGUI?" ${NANOGUI_USE_GLAD_DEFAULT})
 option(NANOGUI_INSTALL       "Install NanoGUI on `make install`?" ON)
@@ -40,6 +40,7 @@ if(APPLE AND NANOGUI_BUILD_SHARED)
 endif()
 
 include(CheckCXXCompilerFlag)
+include(CheckCXXSourceRuns)
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   message(STATUS "Setting build type to 'Release' as none was specified.")
@@ -49,32 +50,43 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 string(TOUPPER "${CMAKE_BUILD_TYPE}" U_CMAKE_BUILD_TYPE)
 
+macro(CHECK_CXX_COMPILER_AND_LINKER_FLAGS _RESULT _CXX_FLAGS _LINKER_FLAGS)
+  set(CMAKE_REQUIRED_FLAGS ${_CXX_FLAGS})
+  set(CMAKE_REQUIRED_LIBRARIES ${_LINKER_FLAGS})
+  set(CMAKE_REQUIRED_QUIET TRUE)
+  check_cxx_source_runs("int main(int argc, char **argv) { return 0; }" ${_RESULT})
+  set(CMAKE_REQUIRED_FLAGS "")
+  set(CMAKE_REQUIRED_LIBRARIES "")
+endmacro()
+
+# Compile GLFW
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL " " FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL " " FORCE)
 set(GLFW_BUILD_DOCS OFF CACHE BOOL " " FORCE)
 set(GLFW_BUILD_INSTALL OFF CACHE BOOL " " FORCE)
 set(GLFW_INSTALL OFF CACHE BOOL " " FORCE)
+set(GLFW_USE_CHDIR OFF CACHE BOOL " " FORCE)
 set(BUILD_SHARED_LIBS ${NANOGUI_BUILD_SHARED} CACHE BOOL " " FORCE)
 
-if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  # Quench annoying deprecation warnings when compiling GLFW on OSX
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-deprecated-declarations")
-endif()
-
-# Compile GLFW
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/ext/glfw" "ext_build/glfw")
+# Two targets have now been defined: `glfw_objects`, which will be merged into
+# NanoGUI at the end, and `glfw`.  The `glfw` target is the library itself
+# (e.g., libglfw.so), but can be skipped as we do not need to link against it
+# (because we merge `glfw_objects` into NanoGUI).  Skipping is required for
+# XCode, but preferable for all build systems (reduces build artifacts).
+set_target_properties(glfw PROPERTIES EXCLUDE_FROM_ALL 1 EXCLUDE_FROM_DEFAULT_BUILD 1)
 
 # Compile Cereal
-add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/ext/cereal" "ext_build/cereal")
+#add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/ext/cereal" "ext_build/cereal")
 
 # Python support: add NANOGUI_PYTHON flag to all targets
 if (NANOGUI_BUILD_PYTHON)
   list(APPEND NANOGUI_EXTRA_DEFS -DNANOGUI_PYTHON)
 endif()
 
-# Shared library mode: add NANOGUI_SHARED flag to all targets
+# Shared library mode: add dllimport/dllexport flags to all symbols
 if (NANOGUI_BUILD_SHARED)
-  list(APPEND NANOGUI_EXTRA_DEFS -DNANOGUI_SHARED)
+  list(APPEND NANOGUI_EXTRA_DEFS -DNANOGUI_SHARED -DNVG_SHARED -DGLAD_GLAPI_EXPORT)
 endif()
 
 if (MSVC)
@@ -103,7 +115,7 @@ elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
 endif()
 
-if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+if (CMAKE_CXX_COMPILER_ID MATCHES "^(GNU|Clang|Intel)$")
   CHECK_CXX_COMPILER_FLAG("-std=c++14" HAS_CPP14_FLAG)
   CHECK_CXX_COMPILER_FLAG("-std=c++11" HAS_CPP11_FLAG)
 
@@ -113,6 +125,73 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU"
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
   else()
     message(FATAL_ERROR "Unsupported compiler -- pybind11 requires C++11 support!")
+  endif()
+endif()
+
+# Various optimizations for shared library release builds
+if (NANOGUI_BUILD_SHARED)
+  if (U_CMAKE_BUILD_TYPE MATCHES REL AND CMAKE_CXX_COMPILER_ID MATCHES "^(GNU|Clang)$")
+    # Set the default symbol visibility to hidden
+    if (NOT CMAKE_CXX_FLAGS MATCHES "-fvisibility")
+      set(CMAKE_CXX_FLAGS "-fvisibility=hidden ${CMAKE_CXX_FLAGS}")
+    endif()
+
+    # Enable link time optimization
+    if (NOT CMAKE_CXX_FLAGS MATCHES "-flto")
+      if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        set(LTO_CXX_FLAGS "-flto=thin")
+        set(LTO_LINKER_FLAGS "-flto=thin")
+        if (NOT APPLE AND U_CMAKE_BUILD_TYPE MATCHES MINSIZEREL)
+            # Clang Gold plugin does not support -Os
+            set(LTO_CXX_FLAGS "${LTO_CXX_FLAGS} -O3")
+        endif()
+      else()
+        set(LTO_CXX_FLAGS "-flto -fno-fat-lto-objects")
+        set(LTO_LINKER_FLAGS "-flto")
+      endif()
+
+      CHECK_CXX_COMPILER_AND_LINKER_FLAGS(HAS_LTO ${LTO_CXX_FLAGS} ${LTO_LINKER_FLAGS})
+
+      if (HAS_LTO)
+        message(STATUS "NanoGUI: LTO support enabled.")
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${LTO_LINKER_FLAGS}")
+        set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${LTO_LINKER_FLAGS}")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${LTO_CXX_FLAGS}")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${LTO_CXX_FLAGS}")
+      else()
+        message(STATUS "NanoGUI: LTO not supported by the compiler.")
+      endif()
+    endif()
+  elseif(MSVC)
+    set(Configurations RELEASE RELWITHDEBINFO MINSIZEREL)
+    set(LinkTypes EXE SHARED MODULE STATIC)
+    foreach(Configuration ${Configurations})
+      set("CMAKE_CXX_FLAGS_${Configuration}" "${CMAKE_CXX_FLAGS_${Configuration}} /GL")
+      foreach(LinkType ${LinkTypes})
+        set("CMAKE_${LinkType}_LINKER_FLAGS_${Configuration}" "${CMAKE_${LinkType}_LINKER_FLAGS_${Configuration}} /LTCG")
+      endforeach()
+    endforeach()
+    message(STATUS "NanoGUI: LTO support enabled.")
+  endif()
+endif()
+
+# Always use libc++ on Clang
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  CHECK_CXX_COMPILER_AND_LINKER_FLAGS(HAS_LIBCPP "-stdlib=libc++" "-stdlib=libc++")
+  if (HAS_LIBCPP)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -stdlib=libc++")
+    CHECK_CXX_COMPILER_AND_LINKER_FLAGS(HAS_LIBCPPABI "-stdlib=libc++" "-stdlib=libc++ -lc++abi")
+    if(HAS_LIBCPPABI)
+      set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lc++abi")
+      set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -lc++abi")
+      message(STATUS "NanoGUI: using libc++ and libc++abi.")
+    else()
+      message(STATUS "NanoGUI: using libc++.")
+    endif()
+  else()
+    message(STATUS "NanoGUI: NOT using libc++.")
   endif()
 endif()
 
@@ -151,8 +230,14 @@ elseif (APPLE)
   find_library(iokit_library IOKit)
   list(APPEND NANOGUI_EXTRA_LIBS ${cocoa_library} ${opengl_library} ${corevideo_library} ${iokit_library})
   list(APPEND LIBNANOGUI_EXTRA_SOURCE src/darwin.mm)
-elseif(CMAKE_SYSTEM MATCHES "Linux")
-  list(APPEND NANOGUI_EXTRA_LIBS GL Xxf86vm Xrandr Xinerama Xcursor Xi X11 pthread dl rt)
+elseif(CMAKE_SYSTEM MATCHES "Linux" OR CMAKE_SYSTEM_NAME MATCHES "BSD")
+  list(APPEND NANOGUI_EXTRA_LIBS GL Xxf86vm Xrandr Xinerama Xcursor Xi X11 pthread )
+  if (NOT CMAKE_SYSTEM_NAME MATCHES "OpenBSD")
+    list(APPEND NANOGUI_EXTRA_LIBS rt)
+  endif()
+  if(CMAKE_SYSTEM MATCHES "Linux")
+    list(APPEND NANOGUI_EXTRA_LIBS dl)
+  endif()
 endif()
 
 include_directories(${NANOGUI_EIGEN_INCLUDE_DIR} ext/glfw/include ext/nanovg/src ext/cereal/include include ${CMAKE_CURRENT_BINARY_DIR})
@@ -160,6 +245,7 @@ include_directories(${NANOGUI_EIGEN_INCLUDE_DIR} ext/glfw/include ext/nanovg/src
 # Run simple C converter to put font files into the data segment
 # Globalize resource files
 file(GLOB resources "${CMAKE_CURRENT_SOURCE_DIR}/resources/*.ttf")
+
 # Concatenate resource files into a comma separated string
 string (REGEX REPLACE "([^\\]|^);" "\\1," resources_string "${resources}")
 string (REGEX REPLACE "[\\](.)" "\\1" resources_string "${resources_string}")
@@ -196,14 +282,15 @@ if (APPLE OR CMAKE_SYSTEM MATCHES "Linux")
   list(APPEND LIBNANOGUI_PYTHON_EXTRA_SOURCE ext/coro/coro.c)
 endif()
 
+if (APPLE)
+  # Use automatic reference counting for Objective-C portions
+  add_compile_options(-fobjc-arc)
+endif()
+
 add_definitions(${NANOGUI_EXTRA_DEFS})
 
 # Compile main NanoGUI library
-add_library(nanogui ${NANOGUI_LIBRARY_TYPE}
-  # Merge GLFW into the NanoGUI library
-  $<TARGET_OBJECTS:glfw_objects>
-  ext/glfw/include/GLFW/glfw3.h
-
+add_library(nanogui-obj OBJECT
   # Merge NanoVG into the NanoGUI library
   ext/nanovg/src/nanovg.c
   # Merge GLAD into the NanoGUI library (only if needed)
@@ -254,8 +341,28 @@ add_library(nanogui ${NANOGUI_LIBRARY_TYPE}
   src/serializer.cpp
 )
 
+# XCode has a serious bug where the XCode project produces an invalid target
+# that will not get linked if it consists only of objects from object libraries,
+# it will not generate any products (executables, libraries). The only work
+# around is to add a dummy source file to the library definition. This is an
+# XCode, not a CMake bug. See: https://itk.org/Bug/view.php?id=14044
+if (CMAKE_GENERATOR STREQUAL Xcode)
+  set(XCODE_DUMMY ${CMAKE_CURRENT_BINARY_DIR}/xcode_dummy.cpp)
+  file(WRITE ${XCODE_DUMMY} "")
+  add_library(nanogui ${NANOGUI_LIBRARY_TYPE}
+    ${XCODE_DUMMY}
+    $<TARGET_OBJECTS:nanogui-obj>
+    $<TARGET_OBJECTS:glfw_objects>
+  )
+else()
+  add_library(nanogui ${NANOGUI_LIBRARY_TYPE}
+    $<TARGET_OBJECTS:nanogui-obj>
+    $<TARGET_OBJECTS:glfw_objects>
+  )
+endif()
+
 # Compile/link flags for NanoGUI
-set_property(TARGET nanogui APPEND PROPERTY COMPILE_DEFINITIONS "NANOGUI_BUILD")
+set_property(TARGET nanogui-obj APPEND PROPERTY COMPILE_DEFINITIONS "NANOGUI_BUILD;NVG_BUILD")
 
 if (NANOGUI_USE_GLAD AND NANOGUI_BUILD_SHARED)
   set_property(TARGET nanogui APPEND PROPERTY COMPILE_DEFINITIONS
@@ -263,7 +370,7 @@ if (NANOGUI_USE_GLAD AND NANOGUI_BUILD_SHARED)
 endif()
 
 if (NANOGUI_BUILD_SHARED)
-  target_link_libraries(nanogui ${NANOGUI_EXTRA_LIBS})
+  set_property(TARGET nanogui APPEND PROPERTY COMPILE_DEFINITIONS "_GLFW_BUILD_DLL;NVG_SHARED")
 endif()
 
 if (NANOGUI_INSTALL)
@@ -327,9 +434,8 @@ else()
   set_source_files_properties(ext/nanovg/src/nanovg.c PROPERTIES COMPILE_DEFINITIONS "NVG_BUILD")
 endif()
 
-
 # Build simulator
-add_executable(SimulatorGUI src/SimulatorGUI.cpp src/ScriptCommand.cpp src/Simulator.cpp include/Icon.h include/Simulator.h include/ControlRod.h resource1.h logo_256px.ico SimulatorGUI1.rc include/PeriodicalMode.h include/Settings.h include/SerialClass.h src/SerialClass.cpp)
+add_executable(SimulatorGUI src/SimulatorGUI.cpp src/ScriptCommand.cpp  src/Simulator.cpp ext/nanovg/src/nanovg.c include/Icon.h include/Simulator.h include/ControlRod.h resource1.h logo_256px.ico SimulatorGUI1.rc include/PeriodicalMode.h include/Settings.h include/SerialClass.h src/SerialClass.cpp)
 target_link_libraries(SimulatorGUI nanogui ${NANOGUI_EXTRA_LIBS})
 file(COPY resources/icons DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 if (NANOGUI_INSTALL)
@@ -369,26 +475,24 @@ if (NANOGUI_BUILD_PYTHON)
   set_target_properties(nanogui_python PROPERTIES PREFIX "")
 
   if (WIN32)
-    # .PYD file extension on Windows
-    set_target_properties(nanogui_python PROPERTIES SUFFIX ".pyd")
-
     # Set output path
-    set_target_properties(nanogui_python PROPERTIES ARCHIVE_OUTPUT_DIRECTORY_RELEASE "Release/python")
-    set_target_properties(nanogui_python PROPERTIES ARCHIVE_OUTPUT_DIRECTORY_DEBUG "Debug/python")
-    set_target_properties(nanogui_python PROPERTIES ARCHIVE_OUTPUT_DIRECTORY_MINSIZEREL "MinSizeRel/python")
-    set_target_properties(nanogui_python PROPERTIES ARCHIVE_OUTPUT_DIRECTORY_RELWITHDEBINFO "RelWithDebInfo/python")
-    set_target_properties(nanogui_python PROPERTIES RUNTIME_OUTPUT_DIRECTORY_RELEASE "Release/python")
-    set_target_properties(nanogui_python PROPERTIES RUNTIME_OUTPUT_DIRECTORY_DEBUG "Debug/python")
-    set_target_properties(nanogui_python PROPERTIES RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL "MinSizeRel/python")
-    set_target_properties(nanogui_python PROPERTIES RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO "RelWithDebInfo/python")
+    set_target_properties(nanogui-python PROPERTIES ARCHIVE_OUTPUT_DIRECTORY_RELEASE "Release/python")
+    set_target_properties(nanogui-python PROPERTIES ARCHIVE_OUTPUT_DIRECTORY_DEBUG "Debug/python")
+    set_target_properties(nanogui-python PROPERTIES ARCHIVE_OUTPUT_DIRECTORY_MINSIZEREL "MinSizeRel/python")
+    set_target_properties(nanogui-python PROPERTIES ARCHIVE_OUTPUT_DIRECTORY_RELWITHDEBINFO "RelWithDebInfo/python")
+    set_target_properties(nanogui-python PROPERTIES RUNTIME_OUTPUT_DIRECTORY_RELEASE "Release/python")
+    set_target_properties(nanogui-python PROPERTIES RUNTIME_OUTPUT_DIRECTORY_DEBUG "Debug/python")
+    set_target_properties(nanogui-python PROPERTIES RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL "MinSizeRel/python")
+    set_target_properties(nanogui-python PROPERTIES RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO "RelWithDebInfo/python")
 
     # Link against the Python shared library
-    target_link_libraries(nanogui_python ${PYTHON_LIBRARY})
+    target_link_libraries(nanogui-python ${PYTHON_LIBRARY})
 
     if (MSVC)
-      # Optimize size, /bigobj is needed for due to the heavy template metaprogramming in pybind11
-      set_property(TARGET nanogui_python APPEND PROPERTY COMPILE_OPTIONS
-        "/bigobj" "$<$<CONFIG:Release>:/Os>" "$<$<CONFIG:MinSizeRel>:/Os>" "$<$<CONFIG:RelWithDebInfo>:/Os>")
+      # Optimize for size, /bigobj is needed for due to the heavy template metaprogramming in pybind11
+      set_property(TARGET nanogui-python-obj APPEND PROPERTY COMPILE_OPTIONS
+        "/bigobj" "$<$<CONFIG:Release>:/Os>" "$<$<CONFIG:MinSizeRel>:/Os>"
+        "$<$<CONFIG:RelWithDebInfo>:/Os>")
     endif()
   elseif(UNIX)
     # .SO file extension on Linux/Mac OS
