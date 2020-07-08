@@ -1,0 +1,22 @@
+dist: bionic
+sudo: required
+language:
+  - cpp
+compiler:
+  - gcc
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+    packages:
+      - g++
+      - cmake
+      - xorg-dev
+      - libgl1-mesa-dev
+      - g++-multilib
+script:
+  # Check versions of gcc, g++ and cmake
+  - gcc -v && g++ -v && cmake --version
+  # Run your build commands next
+  - cd build && cmake ..
+  - make
