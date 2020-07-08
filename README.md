@@ -8,8 +8,8 @@ Use "cmake" to create build configuration in any folder.
 
 On Ubuntu Linux, the following set of commands should build Research Reactor simulator:
 ```
-apt update && apt update && apt -y install make git cmake xorg-dev libgl1-mesa-dev g++-multilib
-mkdir nanogui/build && cd nanogui/build
+apt update && apt -y install make git cmake xorg-dev libgl1-mesa-dev g++-multilib
+mkdir build && cd nanogui
 cmake ..
 make
 ```
