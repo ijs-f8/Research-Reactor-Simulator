@@ -77,6 +77,7 @@ add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/ext/glfw" "ext_build/glfw")
 set_target_properties(glfw PROPERTIES EXCLUDE_FROM_ALL 1 EXCLUDE_FROM_DEFAULT_BUILD 1)
 
 # Compile Cereal
+set(WITH_WERROR OFF CACHE BOOL "Compile with '-Werror' C++ compiler flag")
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/ext/cereal" "ext_build/cereal")
 
 # Python support: add NANOGUI_PYTHON flag to all targets
@@ -424,6 +425,7 @@ endif()
 # Quench warnings while compiling NanoVG
 if (CMAKE_COMPILER_IS_GNUCC)
   set_source_files_properties(ext/nanovg/src/nanovg.c PROPERTIES COMPILE_FLAGS -Wno-unused-result)
+  set_source_files_properties(ext/sandbox PROPERTIES COMPILE_FLAGS -Wno-unused-variable)
 elseif(MSVC)
   set_source_files_properties(ext/nanovg/src/nanovg.c PROPERTIES COMPILE_FLAGS "/wd4005 /wd4456 /wd4457")
 endif()
