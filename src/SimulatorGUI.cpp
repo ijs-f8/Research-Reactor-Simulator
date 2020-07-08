@@ -146,8 +146,9 @@ public:
 		return VERSION_BUILD ? (ver + ".0." + to_string(VERSION_BUILD)) : ver;
 #endif
 	}
-
+#if defined(_WIN32)
 	Serial* theBox;
+#endif
 	Simulator* reactor;
 	Graph* canvas;
 	Graph* delayedGroupsGraph;
@@ -641,7 +642,7 @@ public:
 		//	canvas->getPlot(i)->setPlotRange(displayInterval[0], displayInterval[1]);
 		//}
 	}
-
+	#if defined(_WIN32)
 	vector<string> comPorts;
 	vector<string> lastCOMports;
 	void initializeSerial() {
@@ -718,7 +719,7 @@ public:
 		}
 		boxConnected = flag;
 	}
-
+#endif
 	void initializePulseGraph() {
 		pulseGraph->setBackgroundColor(Color(245, 255));
 		pulseGraph->setTextColor(Color(16, 255));
@@ -820,6 +821,7 @@ public:
 		// Initialize the reactor simulator
 		initializeSimulator();
 
+#if defined(_WIN32)
 		// Initialize THE BOX
 		memset(btns, false, 11 * sizeof(bool));
 		if (!reactor->scriptCommands.size())
@@ -827,7 +829,7 @@ public:
 		if (boxConnected) {
 			std::cout << "===========The Box Mk. III===========" << std::endl;
 		}
-
+#endif
 		RelativeGridLayout* baseLayout = new RelativeGridLayout();
 		baseLayout->appendCol(1.f);
 		baseLayout->appendRow(1.f);
@@ -2907,17 +2909,19 @@ public:
 		return tempBox;
 	}
 
-#if defined(_WIN32)
 	void handleDebugChanged() {
 		reactor->setDebugMode(debugMode);
 		if (debugMode) {
+#if defined(_WIN32)
 			ShowWindow(GetConsoleWindow(), SW_SHOW);
+#endif
 		}
 		else {
+#if defined(_WIN32)
 			ShowWindow(GetConsoleWindow(), SW_HIDE);
+#endif
 		}
 	}
-#endif
 
 	~SimulatorGUI() {
 		delete reactor;
@@ -2926,8 +2930,9 @@ public:
 				delete[] operationModesPlots[i][j];
 			}
 		}
-		
+#if defined(_WIN32)
 		if (boxConnected) delete theBox;
+#endif
 	}
 
 	virtual bool keyboardEvent(int key, int scancode, int action, int modifiers) {
@@ -2964,7 +2969,9 @@ public:
 			}
 			if (isDebug) {
 				debugMode = !debugMode;
+
 				handleDebugChanged();
+
 			}
 			if (isReset) {
 				resetSimToStart();
@@ -3288,7 +3295,7 @@ public:
 		alphaPlot->setPointerPosition((float)((reactor->getReactivityCoefficient(tempNow) - alphaPlot->limits()[2]) / (alphaPlot->limits()[3] -  alphaPlot->limits()[2])));
 
 		// Update the text
-		for (int i = 0; i < NUMBER_OF_CONTROL_RODS; i++) rodBox[i]->setText((int)std::ceilf(*reactor->rods[i]->getExactPosition()));
+		for (int i = 0; i < NUMBER_OF_CONTROL_RODS; i++) rodBox[i]->setText((int)std::ceil(*reactor->rods[i]->getExactPosition()));
 
 		// Update time
 		timeLabel->setCaption(getTimeSinceStart());
@@ -3329,15 +3336,18 @@ public:
 		Screen::draw(ctx);
 		
 		// Send dickbut PNG bits over serial
+#if defined(_WIN32)
 		if (boxConnected) {
 			if (theBox->IsConnected()) handleBox();
 		}
 		else {
 			updateCOMports();
 		}
+#endif
 	}
 	
 	double lastData = 0.;
+#if defined(_WIN32)
 	void handleBox() {
 		LEDstatus = (uint16_t)0;
 		// Write LED status
@@ -3381,6 +3391,7 @@ public:
 		sendByte[2] = LEDstatus & 0x00ff;
 
 		// Write LED data
+		
 		theBox->WriteData(sendByte, 3);
 
 		// Reset sounds
@@ -3412,7 +3423,7 @@ public:
 		}
 		
 	}
-
+#endif
 	bool shouldUpdateNeutronSource = false;
 	void updateNeutronSourceTab() {
 		int v = (int)reactor->getNeutronSourceMode() - 1;

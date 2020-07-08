@@ -3,6 +3,7 @@
 
 #define ARDUINO_WAIT_TIME 2000
 
+#if defined(_WIN32)
 #include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,5 +44,5 @@ public:
 	unsigned int availableBytes();
 
 };
-
+#endif
 #endif // SERIALCLASS_H_INCLUDED

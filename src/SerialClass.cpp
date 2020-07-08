@@ -1,5 +1,5 @@
 #include <SerialClass.h>
-
+#if defined(_WIN32)
 Serial::Serial(const char *portName)
 {
 	this->port = std::string(portName);
@@ -151,3 +151,4 @@ unsigned int Serial::availableBytes()
 	ClearCommError(this->hSerial, &this->errors, &this->status);
 	return this->status.cbInQue;
 }
+#endif
