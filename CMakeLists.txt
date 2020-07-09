@@ -78,6 +78,8 @@ set_target_properties(glfw PROPERTIES EXCLUDE_FROM_ALL 1 EXCLUDE_FROM_DEFAULT_BU
 
 # Compile Cereal
 set(WITH_WERROR OFF CACHE BOOL "Compile with '-Werror' C++ compiler flag")
+set(SKIP_PORTABILITY_TEST ON CACHE BOOL "Skip portability (32 bit) tests" FORCE)
+set(SKIP_PERFORMANCE_COMPARISON ON CACHE BOOL "Skip building performance comparison (requires boost)" FORCE)
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/ext/cereal" "ext_build/cereal")
 
 # Python support: add NANOGUI_PYTHON flag to all targets
@@ -199,7 +201,7 @@ endif()
 if (NANOGUI_USE_GLAD)
   # Build and include GLAD on Windows
   list(APPEND LIBNANOGUI_EXTRA_SOURCE
-     "${CMAKE_CURRENT_SOURCE_DIR}/ext/glad/src/glad.c"
+   "${CMAKE_CURRENT_SOURCE_DIR}/ext/glad/src/glad.c"
 	 "${CMAKE_CURRENT_SOURCE_DIR}/ext/glad/include/glad/glad.h"
 	 "${CMAKE_CURRENT_SOURCE_DIR}/ext/glad/include/KHR/khrplatform.h")
   if (MSVC)
@@ -437,7 +439,7 @@ else()
 endif()
 
 # Build simulator
-add_executable(SimulatorGUI src/SimulatorGUI.cpp src/ScriptCommand.cpp  src/Simulator.cpp ext/nanovg/src/nanovg.c include/Icon.h include/Simulator.h include/ControlRod.h resource1.h logo_256px.ico SimulatorGUI1.rc include/PeriodicalMode.h include/Settings.h include/SerialClass.h src/SerialClass.cpp)
+add_executable(SimulatorGUI src/SimulatorGUI.cpp src/ScriptCommand.cpp  src/Simulator.cpp ext/nanovg/src/nanovg.c include/Icon.h include/Simulator.h include/ControlRod.h build/resource1.h build/logo_256px.ico build/SimulatorGUI1.rc include/PeriodicalMode.h include/Settings.h include/SerialClass.h src/SerialClass.cpp)
 target_link_libraries(SimulatorGUI nanogui ${NANOGUI_EXTRA_LIBS})
 file(COPY resources/icons DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 if (NANOGUI_INSTALL)
