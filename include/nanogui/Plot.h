@@ -7,7 +7,6 @@
 
 using nanogui::Color;
 using std::deque;
-using std::exception;
 using std::string;
 using std::abs;
 
@@ -369,7 +368,8 @@ public:
 
 	double getYat(size_t i, bool normalize = true) {
 		if (mRewriting) i = i % mArraySize;
-		if (i >= mArraySize) throw new exception("Out of bounds - Plot deque");
+		//if (i >= mArraySize) throw new std::exception("Out of bounds - Plot deque");
+		if (i >= mArraySize) return 0;
 		double preNorm;
 		if (type == 1) {
 			preNorm = (double)yValues_float[i];

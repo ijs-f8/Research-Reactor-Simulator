@@ -1,14 +1,6 @@
 ﻿/*
-	src/example2.cpp -- C++ version of an example application that shows
-	how to use the form helper class. For a Python implementation, see
-	'../python/example2.py'.
-
-	NanoGUI was developed by Wenzel Jakob <wenzel.jakob@epfl.ch>.
-	The widget drawing code is based on the NanoVG demo application
-	by Mikko Mononen.
-
-	All rights reserved. Use of this source code is governed by a
-	BSD-style license that can be found in the LICENSE.txt file.
+	SimulatorGUI.cpp draws the main 
+	GUI screen
 */
 #define NOMINMAX
 
@@ -67,8 +59,8 @@
 // SIMULATOR VERSION
 // major.minor.revision.build
 #define VERSION_MAJOR		1
-#define VERSION_MINOR		3
-#define VERSION_REVISION	2
+#define VERSION_MINOR		4
+#define VERSION_REVISION	1
 #define VERSION_BUILD		0		// Setting this to 0 doesn't display the build number
 
 // RECIEVING
@@ -154,8 +146,9 @@ public:
 		return VERSION_BUILD ? (ver + ".0." + to_string(VERSION_BUILD)) : ver;
 #endif
 	}
-
+#if defined(_WIN32)
 	Serial* theBox;
+#endif
 	Simulator* reactor;
 	Graph* canvas;
 	Graph* delayedGroupsGraph;
@@ -649,7 +642,7 @@ public:
 		//	canvas->getPlot(i)->setPlotRange(displayInterval[0], displayInterval[1]);
 		//}
 	}
-
+	#if defined(_WIN32)
 	vector<string> comPorts;
 	vector<string> lastCOMports;
 	void initializeSerial() {
@@ -726,7 +719,7 @@ public:
 		}
 		boxConnected = flag;
 	}
-
+#endif
 	void initializePulseGraph() {
 		pulseGraph->setBackgroundColor(Color(245, 255));
 		pulseGraph->setTextColor(Color(16, 255));
@@ -828,6 +821,7 @@ public:
 		// Initialize the reactor simulator
 		initializeSimulator();
 
+#if defined(_WIN32)
 		// Initialize THE BOX
 		memset(btns, false, 11 * sizeof(bool));
 		if (!reactor->scriptCommands.size())
@@ -835,7 +829,7 @@ public:
 		if (boxConnected) {
 			std::cout << "===========The Box Mk. III===========" << std::endl;
 		}
-
+#endif
 		RelativeGridLayout* baseLayout = new RelativeGridLayout();
 		baseLayout->appendCol(1.f);
 		baseLayout->appendRow(1.f);
@@ -2800,7 +2794,8 @@ public:
 			if (saveFileName.substr((size_t)std::max(0, (int)saveFileName.length() - 4), std::min((size_t)4, saveFileName.length())) != ".rrs") {
 				saveFileName = saveFileName.append(".rrs");
 			}
-			saveSettings(saveFileName);
+			//saveSettings(saveFileName);
+			saveArchive(saveFileName);
 		});
 
 		Button* loadBtn = other_tab->add<Button>("Load settings");
@@ -2808,7 +2803,10 @@ public:
 		loadBtn->setCallback([this]() {
 			toggleBaseWindow(false);
 			std::string loadFileName = file_dialog({ { "rrs", "Simulator settings file" } }, false);
-			loadSettingsFromFile(loadFileName);
+			// loadSettingsFromFile(loadFileName);
+			loadArchive(loadFileName);
+			std::cout << "Graph size after GUI: " << properties->graphSize << std::endl;
+			updateSettings();
 		});
 
 		Button* saveLogBtn = other_tab->add<Button>("Save data");
@@ -2911,17 +2909,19 @@ public:
 		return tempBox;
 	}
 
-#if defined(_WIN32)
 	void handleDebugChanged() {
 		reactor->setDebugMode(debugMode);
 		if (debugMode) {
+#if defined(_WIN32)
 			ShowWindow(GetConsoleWindow(), SW_SHOW);
+#endif
 		}
 		else {
+#if defined(_WIN32)
 			ShowWindow(GetConsoleWindow(), SW_HIDE);
+#endif
 		}
 	}
-#endif
 
 	~SimulatorGUI() {
 		delete reactor;
@@ -2930,8 +2930,9 @@ public:
 				delete[] operationModesPlots[i][j];
 			}
 		}
-		
+#if defined(_WIN32)
 		if (boxConnected) delete theBox;
+#endif
 	}
 
 	virtual bool keyboardEvent(int key, int scancode, int action, int modifiers) {
@@ -2968,7 +2969,9 @@ public:
 			}
 			if (isDebug) {
 				debugMode = !debugMode;
+
 				handleDebugChanged();
+
 			}
 			if (isReset) {
 				resetSimToStart();
@@ -3292,7 +3295,7 @@ public:
 		alphaPlot->setPointerPosition((float)((reactor->getReactivityCoefficient(tempNow) - alphaPlot->limits()[2]) / (alphaPlot->limits()[3] -  alphaPlot->limits()[2])));
 
 		// Update the text
-		for (int i = 0; i < NUMBER_OF_CONTROL_RODS; i++) rodBox[i]->setText((int)std::ceilf(*reactor->rods[i]->getExactPosition()));
+		for (int i = 0; i < NUMBER_OF_CONTROL_RODS; i++) rodBox[i]->setText((int)std::ceil(*reactor->rods[i]->getExactPosition()));
 
 		// Update time
 		timeLabel->setCaption(getTimeSinceStart());
@@ -3333,15 +3336,18 @@ public:
 		Screen::draw(ctx);
 		
 		// Send dickbut PNG bits over serial
+#if defined(_WIN32)
 		if (boxConnected) {
 			if (theBox->IsConnected()) handleBox();
 		}
 		else {
 			updateCOMports();
 		}
+#endif
 	}
 	
 	double lastData = 0.;
+#if defined(_WIN32)
 	void handleBox() {
 		LEDstatus = (uint16_t)0;
 		// Write LED status
@@ -3385,6 +3391,7 @@ public:
 		sendByte[2] = LEDstatus & 0x00ff;
 
 		// Write LED data
+		
 		theBox->WriteData(sendByte, 3);
 
 		// Reset sounds
@@ -3416,7 +3423,7 @@ public:
 		}
 		
 	}
-
+#endif
 	bool shouldUpdateNeutronSource = false;
 	void updateNeutronSourceTab() {
 		int v = (int)reactor->getNeutronSourceMode() - 1;
@@ -3687,100 +3694,15 @@ public:
 #endif
 	}
 
-	void saveSettings(std::string path) {
-		if (path.length()) {
-			FILE* pFile = fopen(path.c_str(), "w");
-			float ver = SETTINGS_VERSION;
-			fwrite(&ver, sizeof(float), 1, pFile);
-			size_t writtenValues;
-			std::pair<char*, size_t> saveFile = properties->saveSettings(&writtenValues);
-			fwrite(&writtenValues, sizeof(size_t), 1, pFile);
-			size_t writtenBytes = fwrite(saveFile.first, 1, saveFile.second, pFile);
-			fclose(pFile);
-			if (writtenBytes == saveFile.second) {
-				MessageDialog* msg = new MessageDialog(this, MessageDialog::Type::Information, "Save settings", "Settings saved successfully.");
-				msg->setPosition(Vector2i((this->size().x() - msg->size().x()) / 2, (this->size().y() - msg->size().y()) / 2));
-				msg->setCallback([this](int /*choice*/) {
-					toggleBaseWindow(true);
-				});
-			}
-			else {
-				MessageDialog* msg = new MessageDialog(this, MessageDialog::Type::Warning, "Save settings", "Settings could not be saved. Do you have permission to edit the folder?", "Try again", "Calcel", true);
-				msg->setPosition(Vector2i((this->size().x() - msg->size().x()) / 2, (this->size().y() - msg->size().y()) / 2));
-				msg->setCallback([this, path](int choice) {
-					if (choice) {
-						saveSettings(path);
-					}
-					else {
-						toggleBaseWindow(true);
-					}
-				});
-			}
-		}
-		else {
-			MessageDialog* msg = new MessageDialog(this, MessageDialog::Type::Warning, "Save settings", "Bad file name.");
-			msg->setPosition(Vector2i((this->size().x() - msg->size().x()) / 2, (this->size().y() - msg->size().y()) / 2));
-			msg->setCallback([this](int /*choice*/) {
-				toggleBaseWindow(true);
-			});
-		}		
+	void saveArchive(std::string path) {
+		properties->saveArchive(path);
+		toggleBaseWindow(true);
 	}
 
-	Settings* loadSettings(const char * path) {
-		ifstream file(path, ios::in | ios::binary | ios::ate);
-		size_t fileLength = (size_t)file.tellg();
-		char * buffer = new char[fileLength];
-		file.seekg(0, ios::beg);
-		file.read(buffer, fileLength);
-		file.close();
-		float ver;
-		std::memcpy(&ver, buffer, sizeof(float));
-		if (ver == SETTINGS_VERSION) {
-			size_t numEntries;
-			std::memcpy(&numEntries, buffer + sizeof(float), sizeof(size_t));
-			Settings* ret = new Settings();
-			ret->loadSettingsFromData(buffer + sizeof(float) + sizeof(size_t), numEntries);
-
-			delete[] buffer;
-			return ret;
-		}
-		else {
-			return nullptr;
-		}
-	}
-
-	void loadSettingsFromFile(std::string path) {
-		if (path.length()) {
-			Settings* set = loadSettings(path.c_str());
-			if (set) {
-				properties = set;
-				updateSettings();
-				MessageDialog* msg = new MessageDialog(this, MessageDialog::Type::Information, "Load settings", "Settings loaded successfully.");
-				msg->setPosition(Vector2i((this->size().x() - msg->size().x()) / 2, (this->size().y() - msg->size().y()) / 2));
-				msg->setCallback([this](int /*choice*/) {
-					toggleBaseWindow(true);
-				});
-			}
-			else {
-				MessageDialog* msg = new MessageDialog(this, MessageDialog::Type::Warning, "Load settings", "The settings file is not valid. It might be corrupt or belong to an older version.", "OK", "Try again", true);
-				msg->setPosition(Vector2i((this->size().x() - msg->size().x()) / 2, (this->size().y() - msg->size().y()) / 2));
-				msg->setCallback([this, path](int choice) {
-					if (choice) {
-						loadSettingsFromFile(path);
-					}
-					else {
-						toggleBaseWindow(true);
-					}
-				});
-			}
-		} else {
-			MessageDialog* msg = new MessageDialog(this, MessageDialog::Type::Warning, "Load settings", "Bad file name.");
-			msg->setPosition(Vector2i((this->size().x() - msg->size().x()) / 2, (this->size().y() - msg->size().y()) / 2));
-			msg->setCallback([this](int /*choice*/) {
-				toggleBaseWindow(true);
-			});
-		}
-	}
+	void loadArchive(std::string path) {
+		properties->restoreArchive(path);
+		toggleBaseWindow(true);
+	}   
 
 	void loadScriptFromFile(std::string path) {
 		double time0 = reactor->getCurrentTime();

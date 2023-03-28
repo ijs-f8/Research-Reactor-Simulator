@@ -77,7 +77,7 @@ void PeriodDisplay::draw(NVGcontext *ctx)
 
 	/*
 		// Drawing pointers
-		const float h = std::sqrtf(3.f) * pointerSize * 0.5f;
+		const float h = std::sqrt(3.f) * pointerSize * 0.5f;
 		nvgFillColor(ctx, Color(255, 255));
 		nvgBeginPath(ctx);
 		nvgMoveTo(ctx, mPos.x() + mPadding + i*(rodWidth + mSpacing) + 0.5f, mPos.y() + magnetPos[i] + verticalMargins);

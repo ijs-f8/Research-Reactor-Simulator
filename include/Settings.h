@@ -1,5 +1,5 @@
 #pragma once
-
+#include <cereal/archives/json.hpp>
 /*==================
 DEFAULT VALUES
 =====================*/
@@ -151,6 +151,12 @@ public:
 			rodCurve[1] = rodCurve2;
 		}
 		ControlRodSettings() {}
+
+		template<class Archive>
+		void serialize(Archive& archive)
+		{
+			archive(rodSteps, rodWorth, rodSpeed, rodCurve);
+		}
 	};
 
 	struct SimulationSettings {
@@ -159,23 +165,53 @@ public:
 		float amplitude;
 
 		SimulationSettings(float per, float ampl) { period = per; amplitude = ampl; }
+
+		template<class Archive>
+		void serialize(Archive& archive)
+		{
+			archive(period, amplitude);
+		}
 	};
+
 	struct SquareWaveSettings : SimulationSettings {
+	public:
 		float xIndex[4] = { SQUARE_WAVE_START_UP_DEFAULT, SQUARE_WAVE_END_UP_DEFAULT, SQUARE_WAVE_START_DOWN_DEFAULT, SQUARE_WAVE_END_DOWN_DEFAULT };
 		SquareWaveSettings(float per, float ampl) : SimulationSettings(per, ampl) {}
+		
+		template<class Archive>
+		void serialize(Archive& archive)
+		{
+			archive(cereal::base_class<SimulationSettings>(this), xIndex);
+		}
 	};
+
 	struct SineSettings : SimulationSettings {
+	public:
 		enum SineMode {
 			Normal,
 			Quadratic,
 		};
 		SineMode mode = (SineMode)SINE_MODE_DEFAULT;
 		SineSettings(float per, float ampl) : SimulationSettings(per, ampl) {}
+
+		template<class Archive>
+		void serialize(Archive& archive)
+		{
+			archive(cereal::base_class<SimulationSettings>(this), mode);
+		}
 	};
+
 	struct SawToothSettings : SimulationSettings {
+	public:
 		float xIndex[6] = { SAW_TOOTH_UP_START_DEFAULT, SAW_TOOTH_UP_PEAK_DEFAULT, SAW_TOOTH_UP_END_DEFAULT,
 			SAW_TOOTH_DOWN_START_DEFAULT, SAW_TOOTH_DOWN_PEAK_DEFAULT, SAW_TOOTH_DOWN_END_DEFAULT };
 		SawToothSettings(float per, float ampl) : SimulationSettings(per, ampl) {}
+
+		template<class Archive>
+		void serialize(Archive& archive)
+		{
+			archive(cereal::base_class<SimulationSettings>(this), xIndex);
+		}
 	};
 
 	bool waterCooling = WATER_COOLING_ENABLED_DEFAULT;				// 19
@@ -256,172 +292,115 @@ public:
 		memcpy(groupsEnabled, delayedGroupsEnabledDefault, 6 * sizeof(bool));
 	};
 
-	const void loadSettingsFromData(char* source, const size_t numEntries) {
-		size_t shift = 0;
-		for (size_t i = 0; i < numEntries; i++) {
-			int id;
-			std::memcpy(&id, source + shift, sizeof(int));
-			shift += sizeof(int);
+	void saveArchive(std::string fileName) {
+		std::ofstream os(fileName);
+		cereal::JSONOutputArchive archive(os);
 
-			size_t dataSize = getPropertySize(id);
-			char* buffer = new char[dataSize]();
-			std::memcpy(buffer, source + shift, dataSize);
+		archive(rodSettings,
+			squareWave, ns_squareWave,
+			sawToothMode, ns_sawToothMode,
+			sineMode, ns_sineMode,
+			betas,
+			lambdas,
+			groupsEnabled,
+			waterCooling,
+			neutronSourceInserted,
+			graphSize,
+			displayTime,
+			reactivityGraphLimits,
+			temperatureGraphLimits,
+			curveFill,
+			rodReactivityPlot,
+			coreVolume,
+			waterVolume,
+			waterCoolingPower,
+			neutronSourceActivity,
+			promptNeutronLifetime,
+			temperatureEffects,
+			fissionPoisons,
+			excessReactivity,
+			vesselRadius,
+			steadyCurrentPower,
+			avoidPeriodScram,
+			steadyGoalPower,
+			steadyMargin,
+			periodLimit,
+			periodScram,
+			powerLimit,
+			powerScram,
+			tempLimit,
+			tempScram,
+			waterTempLimit,
+			waterTempScram,
+			allRodsAtOnce,
+			waterLevelLimit,
+			waterLevelScram,
+			pulseLimits,
+			alpha0,
+			alphaAtT1,
+			alphaT1,
+			alphaK,
+			yAxisLog,
+			automaticPulseScram,
+			reactivityHardcore,
+			squareWaveUsesRodSpeed
+		);
 
-			updateSetting(id, buffer, dataSize);
-			delete[] buffer;
-
-			shift += dataSize;
-		}
 	}
 
-	const void updateSetting(int id, char* data, size_t dataSize) {
-		void* ptr = getSettingPointer(id);
-		if (ptr) memcpy(ptr, data, dataSize);
+	void restoreArchive(std::string fileName) {
+		std::ifstream is(fileName);
+		cereal::JSONInputArchive iarchive(is);
+
+		iarchive(rodSettings,
+			squareWave, ns_squareWave,
+			sawToothMode, ns_sawToothMode,
+			sineMode, ns_sineMode,
+			betas,
+			lambdas,
+			groupsEnabled,
+			waterCooling,
+			neutronSourceInserted,
+			graphSize,
+			displayTime,
+			reactivityGraphLimits,
+			temperatureGraphLimits,
+			curveFill,
+			rodReactivityPlot,
+			coreVolume,
+			waterVolume,
+			waterCoolingPower,
+			neutronSourceActivity,
+			promptNeutronLifetime,
+			temperatureEffects,
+			fissionPoisons,
+			excessReactivity,
+			vesselRadius,
+			steadyCurrentPower,
+			avoidPeriodScram,
+			steadyGoalPower,
+			steadyMargin,
+			periodLimit,
+			periodScram,
+			powerLimit,
+			powerScram,
+			tempLimit,
+			tempScram,
+			waterTempLimit,
+			waterTempScram,
+			allRodsAtOnce,
+			waterLevelLimit,
+			waterLevelScram,
+			pulseLimits,
+			alpha0,
+			alphaAtT1,
+			alphaT1,
+			alphaK,
+			yAxisLog,
+			automaticPulseScram,
+			reactivityHardcore,
+			squareWaveUsesRodSpeed
+		);
+
 	}
-
-	std::pair<char*, size_t> saveSettings(size_t* entries) {
-		size_t size = 0;
-		const size_t intSize = sizeof(int);
-		for (int i = 0; i <= SETTINGS_NUMBER; i++) {
-			size += getPropertySize(i) + intSize;
-
-			if (i == 2) i = 9;
-			if (i == 9 + NUMBER_OF_CONTROL_RODS) i = 18;
-			if (i == 54) i = 69;
-		}
-
-		std::pair<char*, size_t> ret = std::pair<char*, size_t>();
-		ret.first = new char[size]();
-		ret.second = size;
-
-		size_t shift = 0;
-		size_t numEntries = 0;
-		for (int i = 0; i <= SETTINGS_NUMBER; i++) {
-			size_t pSize = getPropertySize(i);
-			memcpy(ret.first + shift, &i, intSize);
-			memcpy(ret.first + shift + intSize, getSettingPointer(i), pSize);
-			shift += intSize + pSize;
-			numEntries++;
-			if (i == 2) i = 9;
-			if (i == 9 + NUMBER_OF_CONTROL_RODS) i = 18;
-			if (i == 54) i = 69;
-		}
-
-		*entries = numEntries;
-		return ret;
-	}
-
-private:
-
-	void* getSettingPointer(int id) {
-		void* ptr = nullptr;
-		if (id >= 10 && id <= 18) {
-			int n = id - 10;
-			if (n < NUMBER_OF_CONTROL_RODS) { ptr = &rodSettings[n]; }
-		}
-		else if (id <= 5) {
-			switch (id) {
-			case 0: ptr = &squareWave;
-				break;
-			case 1: ptr = &sineMode;
-				break;
-			case 2: ptr = &sawToothMode;
-				break;
-			case 3: ptr = &ns_squareWave;
-				break;
-			case 4: ptr = &ns_sineMode;
-				break;
-			case 5: ptr = &ns_sawToothMode;
-				break;
-			default: break;
-			}
-		}
-		else if (id >= 29 && id <= 46) {
-			int n = (int)floor((id - 29) / 6.);
-			switch (n) {
-			case 0:
-				ptr = &betas[id - 29]; break;
-			case 1:
-				ptr = &lambdas[id - 35]; break;
-			case 2:
-				ptr = &groupsEnabled[id - 41]; break;
-			default: break;
-			}
-		}
-		else {
-			switch (id) {
-			case 19: ptr = &waterCooling; break;
-			case 20: ptr = &neutronSourceInserted; break;
-			case 21: ptr = &graphSize; break;
-			case 22: ptr = &displayTime; break;
-			case 23: ptr = &reactivityGraphLimits[0]; break;
-			case 24: ptr = &reactivityGraphLimits[1]; break;
-			case 25: ptr = &temperatureGraphLimits[0]; break;
-			case 26: ptr = &temperatureGraphLimits[1]; break;
-			case 27: ptr = &curveFill; break;
-			case 28: ptr = &rodReactivityPlot; break;
-			case 47: ptr = &coreVolume; break;
-			case 48: ptr = &waterVolume; break;
-			case 49: ptr = &waterCoolingPower; break;
-			case 50: ptr = &neutronSourceActivity; break;
-			case 51: ptr = &promptNeutronLifetime; break;
-			case 52: ptr = &temperatureEffects; break;
-			case 53: ptr = &fissionPoisons; break;
-			case 54: ptr = &excessReactivity; break;
-			case 55: ptr = &vesselRadius; break;
-			case 70: ptr = &steadyCurrentPower; break;
-			case 71: ptr = &avoidPeriodScram; break;
-			case 72: ptr = &steadyGoalPower; break;
-			case 73: ptr = &steadyMargin; break;
-			case 74: ptr = &periodLimit; break;
-			case 75: ptr = &periodScram; break;
-			case 76: ptr = &powerLimit; break;
-			case 77: ptr = &powerScram; break;
-			case 78: ptr = &tempLimit; break;
-			case 79: ptr = &tempScram; break;
-			case 80: ptr = &waterTempLimit; break;
-			case 81: ptr = &waterTempScram; break;
-			case 82: ptr = &allRodsAtOnce; break;
-			case 83: ptr = &waterLevelLimit; break;
-			case 84: ptr = &waterLevelScram; break;
-			case 85: ptr = &pulseLimits[0]; break;
-			case 86: ptr = &pulseLimits[1]; break;
-			case 87: ptr = &alpha0; break;
-			case 88: ptr = &alphaAtT1; break;
-			case 89: ptr = &alphaT1; break;
-			case 90: ptr = &alphaK; break;
-			case 91: ptr = &yAxisLog; break;
-			case 92: ptr = &automaticPulseScram; break;
-			case 93: ptr = &reactivityHardcore; break;
-			case 94: ptr = &squareWaveUsesRodSpeed; break;
-			default: break;
-			}
-		}
-
-		return ptr;
-	}
-
-	const static size_t getPropertySize(int id) {
-		if (id == 0 || id == 3) return sizeof(SquareWaveSettings);
-		if (id == 1 || id == 4) return sizeof(SineSettings);
-		if (id == 2 || id == 5) return sizeof(SawToothSettings);
-
-		if (id == 6) return sizeof(char);
-
-		if (id == 19 || id == 20 || id == 27 || id == 28) return sizeof(bool);
-		if (id >= 29 && id <= 40) return sizeof(double);
-		if (id >= 41 && id <= 46) return sizeof(bool);
-		if (id >= 47 && id <= 51) return sizeof(double);
-		if (id == 52 || id == 53 || id == 70 || id == 71 || id == 75) return sizeof(bool);
-		if (id >= 10 && id <= 18) return sizeof(ControlRodSettings);
-		if (id == 72 || id == 74 || id == 76) return sizeof(double);
-		if (id == 77 || id == 79 || (id >=91 && id <= 94)) return sizeof(bool);
-		if (id == 81 || id == 82 || id == 84) return sizeof(bool);
-		if (id == 85 || id == 86 || id == 90) return sizeof(double);
-
-		if (id < SETTINGS_NUMBER) return sizeof(float);
-
-		return 0;
-	}
-
 };

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nanogui/widget.h>
+#include <nanovg.h>
 
 NAMESPACE_BEGIN(nanogui)
 
@@ -159,7 +160,7 @@ private:
 			} else {
 				ret = formatDecimals(newValue, 2 - (int)floor(log10(newValue)));
 			}
-			ret += " " + ((order > -7 && order < 13 && order != 0) ? string(utf8(units[order + 6]).data()) : "") + unit;
+			ret += " " + ((order > -7 && order < 13 && order != 0) ? std::string(utf8(units[order + 6]).data()) : "") + unit;
 			return ret;
 		}
 		ret += " " + unit;

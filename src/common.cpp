@@ -12,6 +12,7 @@
 #include <nanogui/screen.h>
 
 #if defined(_WIN32)
+#define NOMINMAX
 #include <windows.h>
 #endif
 
@@ -158,7 +159,7 @@ std::string formatDecimals(double x, int decDigits, const bool forceDecimals)
 {
 	std::string res = (x < 0.) ? "-" : "";
 	x = std::abs(x);
-	decDigits = max(decDigits, 0);
+	decDigits = std::max(decDigits, 0);
 	long num = (long)(decDigits ? std::floor(x) : std::round(x));
 	if (decDigits) {
 		long decNum = (long)std::round((x - std::floor(x)) * pow(10., decDigits));

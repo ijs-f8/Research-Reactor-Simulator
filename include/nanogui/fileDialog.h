@@ -15,6 +15,7 @@
 #include <windows.h>
 #else
 #include <dirent.h>
+#include <sys/stat.h>
 #endif
 #define TOOLBAR_HEIGHT	40.f
 #define LEFT_PANEL_SIZE	120.f
@@ -168,10 +169,10 @@ private:
 			class dirent *ent;
 			class stat st;
 
-			dir = opendir(directory);
+			dir = opendir(directory.c_str());
 			while ((ent = readdir(dir)) != NULL) {
-				const string file_name = ent->d_name;
-				const string full_file_name = directory + "/" + file_name;
+				const std::string file_name = ent->d_name;
+				const std::string full_file_name = directory + "/" + file_name;
 
 				if (stat(full_file_name.c_str(), &st) == -1) continue;
 
@@ -181,7 +182,7 @@ private:
 
 				if (file_name[0] == '.' && !is_directory) continue;
 
-				out.push_back(DirInfo(file_name, true));
+				//out.push_back(DirInfo(file_name, true));
 			}
 			closedir(dir);
 #endif

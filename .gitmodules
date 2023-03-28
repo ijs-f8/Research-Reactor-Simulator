@@ -16,3 +16,6 @@
 [submodule "ext/pybind11"]
 	path = ext/pybind11
 	url = https://github.com/pybind/pybind11.git
+[submodule "ext/cereal"]
+	path = ext/cereal
+	url = https://github.com/USCiLab/cereal.git

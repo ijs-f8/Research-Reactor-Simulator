@@ -1,4 +1,3 @@
-#include "..\include\nanogui\controlRodDisplay.h"
 #include "nanogui/controlRodDisplay.h"
 #include <nanogui/theme.h>
 #include <nanogui/opengl.h>
@@ -26,7 +25,7 @@ void ControlRodDisplay::draw(NVGcontext *ctx)
 
 	// Drawing the rods and magnet pointers
 	float relPosRod, relPosMagnet;
-	const float h = std::sqrtf(3.f) * pointerSize * 0.5f;
+	const float h = std::sqrt(3.f) * pointerSize * 0.5f;
 	NVGpaint upper[2];
 	const float rodWgrad = rodWidth / 2 - rodBorder;
 	for (int i = 0; i < 3; i++) {
@@ -73,7 +72,7 @@ void ControlRodDisplay::draw(NVGcontext *ctx)
 }
 
 Vector2i ControlRodDisplay::preferredSize(NVGcontext *) const {
-	return Vector2i((int)std::ceilf(2 * rodSpacing + 6 * rodBorder), 70);
+	return Vector2i((int)std::ceil(2 * rodSpacing + 6 * rodBorder), 70);
 }
 
 NAMESPACE_END(nanogui)

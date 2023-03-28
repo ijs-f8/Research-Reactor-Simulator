@@ -21,7 +21,7 @@ void Simulator::dataToFile(std::string fileName)
 	long len = (long)std::min(iterations_total, getDataLength());
 	size_t idx, poisonIdx;
 	for (long shift = 0L; shift < len/data_division; shift++) {
-		idx = shiftIndex(start, shift)*data_division;
+		idx = shiftIndex(start, shift * data_division);
 		poisonIdx = idx / POISON_DATA_DEL_DIVISION;
 		logFile << formatTime(time_[idx]) << "\t" << reactivity_[idx] << "\t" << rodReactivity_[idx] << "\t"
 			<< powerFromNeutrons(state_vector_[0][idx]) << "\t" << temperature_[idx] << "\t" << xenon_[poisonIdx] << "\t" << iodine_[poisonIdx] << std::endl;
