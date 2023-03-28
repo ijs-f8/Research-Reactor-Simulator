@@ -19,6 +19,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+
+    - name: Checkout submodules
+      run: git submodule update --init --recursive
     
     - name: Install deps
       run: sudo apt update && sudo apt -y install make git cmake xorg-dev libgl1-mesa-dev g++-multilib
