@@ -19,3 +19,9 @@ mkdir build && cd build
 cmake ..
 make
 ```
+
+## Run requirements
+- OpenGL 3.3 or newer
+- Windows, Linux and Mac builds have been tested.
+- C++ redistributable package for VS 2017 (Windows only requirement)
+- 400MB RAM
