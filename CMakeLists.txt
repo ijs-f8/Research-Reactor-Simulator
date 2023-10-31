@@ -39,6 +39,11 @@ if(APPLE AND NANOGUI_BUILD_SHARED)
   set(CMAKE_MACOSX_RPATH ON)
 endif()
 
+# set CMAKE_OS_ARCHITECTURES to get unversal binary on macOS
+if(APPLE)
+  set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
+endif()
+
 include(CheckCXXCompilerFlag)
 include(CheckCXXSourceRuns)
 
@@ -287,7 +292,7 @@ endif()
 
 if (APPLE)
   # Use automatic reference counting for Objective-C portions
-  add_compile_options(-fobjc-arc)
+  #    add_compile_options(-fobjc-arc)
 endif()
 
 add_definitions(${NANOGUI_EXTRA_DEFS})
